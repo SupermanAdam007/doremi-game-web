@@ -7,7 +7,7 @@ export const BASE_Y = 1.2;
 const LERP_SPEED = 8;
 
 const REST_Z = 0;
-const GRAVITY = 1.5; // lanes per second the ball falls when silent
+const GRAVITY = 2.8; // lanes per second the ball falls when silent
 const FLOOR_Y = BASE_Y;
 
 export function laneToY(lane) {

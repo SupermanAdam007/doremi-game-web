@@ -12,7 +12,9 @@ export function checkCollision(ball, wall) {
   const dist = wallZ - ballZ;
 
   // Only check when wall is within the approach zone
-  if (dist > APPROACH_ZONE || dist < -(ballR * 2)) return null;
+  // Use a generous exit threshold so a Z-bounce never accidentally returns null
+  // while the wall is still blocking (would leave blockedWall stuck forever)
+  if (dist > APPROACH_ZONE || dist < -(ballR * 6)) return null;
 
   const ballY = ball.position.y;
   const ballBottom = ballY - ballR;

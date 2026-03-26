@@ -137,6 +137,9 @@ function loop(now) {
       gameState.passWall();
       ball.flash(0x00ff00);
       blockedWall = null;
+    } else if (result === null) {
+      // Ball escaped the contact zone (e.g. flew past) — unblock so game can continue
+      blockedWall = null;
     } else if (!ball.isOnCooldown()) {
       // Cooldown expired — bounce again to signal wrong pitch
       ball.bounceBack();
