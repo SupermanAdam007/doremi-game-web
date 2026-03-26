@@ -7,6 +7,8 @@ export const BASE_Y = 1.2;
 const LERP_SPEED = 8;
 
 const REST_Z = 0;
+const GRAVITY = 1.5; // lanes per second the ball falls when silent
+const FLOOR_Y = BASE_Y;
 
 export function laneToY(lane) {
   return BASE_Y + lane * LANE_HEIGHT;
@@ -25,6 +27,7 @@ export function createBall(scene) {
   scene.add(mesh);
 
   let targetY = mesh.position.y;
+  let hasSound = false;
 
   // Bounce: ball rocks back on Z axis, stays near REST_Z
   let bounceTime = 0;
@@ -34,12 +37,21 @@ export function createBall(scene) {
   const BOUNCE_AMP = 0.45;
 
   function setLane(lane) {
-    if (lane == null) return;
+    if (lane == null) {
+      hasSound = false;
+      return;
+    }
+    hasSound = true;
     const clamped = Math.max(0, Math.min(LANE_COUNT - 1, lane));
     targetY = laneToY(clamped);
   }
 
   function update(dt) {
+    if (!hasSound) {
+      // Drift targetY down toward the floor
+      targetY = Math.max(FLOOR_Y, targetY - GRAVITY * LANE_HEIGHT * dt);
+    }
+
     mesh.position.y += (targetY - mesh.position.y) * Math.min(1, LERP_SPEED * dt);
 
     if (bounceCooldown > 0) bounceCooldown -= dt;
@@ -73,6 +85,7 @@ export function createBall(scene) {
     targetY = mesh.position.y;
     bounceTime = 0;
     bounceCooldown = 0;
+    hasSound = false;
   }
 
   function flash(color) {
