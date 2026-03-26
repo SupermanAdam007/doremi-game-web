@@ -2,19 +2,26 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-body {
+html, body {
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: #1a1a2e;
   font-family: 'Segoe UI', system-ui, sans-serif;
   color: #fff;
+  touch-action: none;
 }
 
 #game-canvas {
   display: block;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
 }
 
 /* ---------- HUD ---------- */
@@ -32,11 +39,13 @@ body {
 #hud-top {
   display: flex;
   justify-content: center;
-  padding: 1rem;
+  align-items: center;
+  padding: env(safe-area-inset-top, 0.75rem) 1rem 0.5rem;
+  gap: 1rem;
 }
 
 #streak-display {
-  font-size: 2.5rem;
+  font-size: clamp(1.6rem, 5vw, 2.5rem);
   font-weight: 800;
   text-shadow: 0 2px 8px rgba(0,0,0,0.6);
   opacity: 0;
@@ -47,64 +56,94 @@ body {
   opacity: 1;
 }
 
+#btn-pause {
+  pointer-events: auto;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.1rem;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s;
+}
+
+#btn-pause:active {
+  background: rgba(255,255,255,0.3);
+}
+
+#btn-pause.hidden {
+  display: none;
+}
+
 #detected-note {
   position: fixed;
-  bottom: 1.5rem;
+  top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
   left: 50%;
   transform: translateX(-50%);
-  font-size: 1.4rem;
+  font-size: clamp(1rem, 4vw, 1.4rem);
   font-weight: 700;
   text-shadow: 0 2px 6px rgba(0,0,0,0.5);
-  opacity: 0.7;
+  opacity: 0.8;
+  white-space: nowrap;
 }
 
 #controls-hint {
   position: fixed;
-  bottom: 0.5rem;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.4rem);
   right: 0.8rem;
-  font-size: 0.7rem;
-  opacity: 0.35;
+  font-size: 0.65rem;
+  opacity: 0.3;
   letter-spacing: 0.03em;
+}
+
+@media (pointer: coarse) {
+  #controls-hint { display: none; }
 }
 
 /* Pitch bar on the left side */
 #pitch-bar {
   position: fixed;
-  left: 1rem;
+  left: 0.8rem;
   top: 50%;
   transform: translateY(-50%);
-  width: 12px;
-  height: 50vh;
-  background: rgba(255,255,255,0.1);
-  border-radius: 6px;
+  width: 10px;
+  height: 45vh;
+  background: rgba(255,255,255,0.12);
+  border-radius: 5px;
   overflow: visible;
 }
 
 #pitch-indicator {
   position: absolute;
-  left: -2px;
+  left: -3px;
   width: 16px;
   height: 16px;
   background: #7fff7f;
   border-radius: 50%;
   bottom: 50%;
   transition: bottom 0.08s linear;
-  box-shadow: 0 0 8px rgba(127,255,127,0.6);
+  box-shadow: 0 0 8px rgba(127,255,127,0.7);
 }
 
 #pitch-lanes {
   position: absolute;
-  left: 24px;
+  left: 20px;
   top: 0;
   bottom: 0;
-  width: 40px;
+  width: 44px;
 }
 
 .lane-label {
   position: absolute;
-  font-size: 0.65rem;
+  font-size: clamp(0.55rem, 1.8vw, 0.7rem);
   font-weight: 600;
-  opacity: 0.5;
+  opacity: 0.55;
   white-space: nowrap;
 }
 
@@ -112,16 +151,37 @@ body {
 
 #pitch-graph-container {
   position: fixed;
-  bottom: 3.5rem;
+  /* mobile: bottom-center */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.8rem);
   left: 50%;
   transform: translateX(-50%);
   z-index: 15;
   pointer-events: none;
-  filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 4px 24px rgba(0,0,0,0.65));
+  opacity: 0;
+  transition: opacity 0.4s;
+  max-width: calc(100vw - 1rem);
 }
 
-#pitch-graph-container.hidden {
-  display: none;
+#pitch-graph-container.active {
+  opacity: 1;
+}
+
+#pitch-graph-container canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+}
+
+/* Desktop: move to bottom-right, keep pitch bar on left */
+@media (min-width: 700px) {
+  #pitch-graph-container {
+    left: auto;
+    right: 1rem;
+    transform: none;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  }
 }
 
 /* ---------- Overlays ---------- */
@@ -133,9 +193,11 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 10, 30, 0.85);
+  background: rgba(10, 10, 30, 0.88);
   z-index: 20;
   pointer-events: auto;
+  padding: 2rem 1.5rem;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 2rem);
 }
 
 .overlay.hidden {
@@ -143,9 +205,10 @@ body {
 }
 
 .overlay h1 {
-  font-size: 3rem;
+  font-size: clamp(2rem, 8vw, 3rem);
   font-weight: 900;
   margin-bottom: 0.5rem;
+  text-align: center;
   background: linear-gradient(135deg, #a78bfa, #ec4899);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -153,7 +216,7 @@ body {
 }
 
 .overlay p {
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 3.5vw, 1.1rem);
   margin-bottom: 1.5rem;
   max-width: 340px;
   text-align: center;
@@ -161,8 +224,8 @@ body {
 }
 
 .overlay button {
-  padding: 0.75rem 2.5rem;
-  font-size: 1.1rem;
+  padding: 0.85rem 2.5rem;
+  font-size: clamp(1rem, 4vw, 1.1rem);
   font-weight: 700;
   border: none;
   border-radius: 9999px;
@@ -170,6 +233,12 @@ body {
   color: #fff;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
+  min-width: 160px;
+  min-height: 52px;
+}
+
+.overlay button:active {
+  transform: scale(0.97);
 }
 
 .overlay button:hover {

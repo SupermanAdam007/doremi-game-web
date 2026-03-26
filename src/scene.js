@@ -12,9 +12,11 @@ export function createScene(canvas) {
   scene.background = new THREE.Color(0xd0d4da);
   scene.fog = new THREE.Fog(0xd0d4da, 30, 60);
 
-  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 120);
-  const baseCamPos = new THREE.Vector3(3.5, 3.0, 8);
-  const baseLookAt = new THREE.Vector3(-0.5, 2.5, -15);
+  const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 120);
+  // Camera far to the right and slightly behind the ball, looking left toward the walls.
+  // This gives the side perspective from the reference image.
+  const baseCamPos = new THREE.Vector3(6, 2.2, 3);
+  const baseLookAt = new THREE.Vector3(-0.5, 3.0, -6);
   camera.position.copy(baseCamPos);
   camera.lookAt(baseLookAt);
 
@@ -46,15 +48,8 @@ export function createScene(canvas) {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  const camLookTarget = baseLookAt.clone();
-  const CAM_LERP = 4;
-
-  function followBallZ(ballZ, dt) {
-    const targetZ = baseCamPos.z + ballZ * 0.6;
-    camera.position.z += (targetZ - camera.position.z) * Math.min(1, CAM_LERP * dt);
-
-    camLookTarget.z = baseLookAt.z + ballZ * 0.3;
-    camera.lookAt(camLookTarget);
+  function followBallZ(_ballZ, _dt) {
+    // no-op: ball stays at Z=0, camera is fixed
   }
 
   function render() {

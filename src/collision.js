@@ -1,4 +1,5 @@
-const CONTACT_THRESHOLD = 0.5;
+// How far ahead of the wall we start checking (units)
+const APPROACH_ZONE = 1.0;
 
 export function checkCollision(ball, wall) {
   if (wall.passed) return null;
@@ -7,8 +8,11 @@ export function checkCollision(ball, wall) {
   const ballZ = ball.position.z;
   const wallZ = wall.group.position.z;
 
+  // dist: positive means wall is ahead of ball (not yet reached)
   const dist = wallZ - ballZ;
-  if (dist > CONTACT_THRESHOLD || dist < -ballR) return null;
+
+  // Only check when wall is within the approach zone
+  if (dist > APPROACH_ZONE || dist < -(ballR * 2)) return null;
 
   const ballY = ball.position.y;
   const ballBottom = ballY - ballR;
@@ -18,9 +22,5 @@ export function checkCollision(ball, wall) {
     return 'pass';
   }
 
-  if (dist > -ballR && dist < CONTACT_THRESHOLD) {
-    return 'blocked';
-  }
-
-  return null;
+  return 'blocked';
 }

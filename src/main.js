@@ -10,6 +10,8 @@ const canvas = document.getElementById('game-canvas');
 const overlayStart = document.getElementById('overlay-start');
 const overlayPause = document.getElementById('overlay-pause');
 const btnStart = document.getElementById('btn-start');
+const btnPause = document.getElementById('btn-pause');
+const btnResume = document.getElementById('btn-resume');
 const streakDisplay = document.getElementById('streak-display');
 const detectedNoteEl = document.getElementById('detected-note');
 const pitchIndicator = document.getElementById('pitch-indicator');
@@ -27,7 +29,6 @@ buildLaneLabels();
 
 let prevTime = 0;
 let blockedWall = null;
-let graphVisible = false;
 
 gameState.on((snap) => {
   streakDisplay.textContent = snap.streak;
@@ -35,38 +36,42 @@ gameState.on((snap) => {
 
   if (snap.state === State.PAUSED) {
     overlayPause.classList.remove('hidden');
+    btnPause.textContent = '▶';
   } else {
     overlayPause.classList.add('hidden');
+    btnPause.textContent = '⏸';
   }
 });
 
 btnStart.addEventListener('click', startGame);
+btnResume.addEventListener('click', resumeGame);
+btnPause.addEventListener('click', togglePause);
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') {
     e.preventDefault();
     const snap = gameState.snapshot();
     if (snap.state === State.PLAYING || snap.state === State.PAUSED) {
-      gameState.togglePause();
-      if (gameState.snapshot().state === State.PLAYING) {
-        prevTime = performance.now();
-        requestAnimationFrame(loop);
-      }
+      togglePause();
     }
   }
-
-  if (e.code === 'KeyP' && !e.repeat) {
-    graphVisible = true;
-    pitchGraphContainer.classList.remove('hidden');
-  }
 });
 
-window.addEventListener('keyup', (e) => {
-  if (e.code === 'KeyP') {
-    graphVisible = false;
-    pitchGraphContainer.classList.add('hidden');
+function togglePause() {
+  gameState.togglePause();
+  if (gameState.snapshot().state === State.PLAYING) {
+    prevTime = performance.now();
+    requestAnimationFrame(loop);
   }
-});
+}
+
+function resumeGame() {
+  if (gameState.snapshot().state === State.PAUSED) {
+    gameState.resume();
+    prevTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+}
 
 async function startGame() {
   overlayStart.classList.add('hidden');
@@ -74,13 +79,16 @@ async function startGame() {
   try {
     await audio.start();
   } catch (e) {
-    alert('Microphone access is required to play.');
+    alert('Microphone access is required to play. Please allow microphone permission and try again.');
+    overlayStart.classList.remove('hidden');
     return;
   }
 
   spawner.clear();
   ball.reset();
   blockedWall = null;
+  pitchGraphContainer.classList.add('active');
+  btnPause.classList.remove('hidden');
   gameState.play();
   prevTime = performance.now();
   requestAnimationFrame(loop);
@@ -89,8 +97,20 @@ async function startGame() {
 function loop(now) {
   const snap = gameState.snapshot();
   if (snap.state !== State.PLAYING) {
-    render();
-    startIdleLoop();
+    // Keep graphs live during pause so player can tune pitch
+    if (snap.state === State.PAUSED) {
+      const pitch = audio.detectPitch();
+      const lane = pitch ? audio.hzToLane(pitch.hz) : null;
+      updateHUD(lane);
+      pitchGraph.push(lane);
+      pitchGraph.setFreqData(audio.getFrequencyData());
+      pitchGraph.draw();
+      render();
+      requestAnimationFrame(loop);
+    } else {
+      render();
+      startIdleLoop();
+    }
     return;
   }
 
@@ -100,37 +120,32 @@ function loop(now) {
   const pitch = audio.detectPitch();
   const lane = pitch ? audio.hzToLane(pitch.hz) : null;
 
-  updateHUD(pitch, lane);
-
-  if (graphVisible) {
-    pitchGraph.push(lane);
-    pitchGraph.draw();
-  }
+  updateHUD(lane);
+  pitchGraph.push(lane);
+  pitchGraph.setFreqData(audio.getFrequencyData());
+  pitchGraph.draw();
 
   ball.setLane(lane);
   ball.update(dt);
   followBallZ(ball.mesh.position.z, dt);
 
-  if (!ball.isBouncing()) {
-    spawner.update(dt, snap.wallsPassed, blockedWall);
-    scrollRoad(dt);
-  }
-
-  if (blockedWall && !ball.isBouncing()) {
+  if (blockedWall) {
+    // World is fully frozen — no scrolling, no spawning, no other wall movement
     const result = checkCollision(ball.mesh, blockedWall);
     if (result === 'pass') {
       blockedWall.passed = true;
       gameState.passWall();
       ball.flash(0x00ff00);
       blockedWall = null;
-    } else if (result === 'blocked') {
+    } else if (!ball.isOnCooldown()) {
+      // Cooldown expired — bounce again to signal wrong pitch
       ball.bounceBack();
       ball.flash(0xff4444);
       gameState.bounce();
     }
-  }
-
-  if (!blockedWall) {
+  } else {
+    spawner.update(dt, snap.wallsPassed, null);
+    scrollRoad(dt);
     for (const wall of spawner.getActiveWalls()) {
       if (wall.passed) continue;
       const result = checkCollision(ball.mesh, wall);
@@ -152,7 +167,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-function updateHUD(pitch, lane) {
+function updateHUD(lane) {
   if (lane != null) {
     const info = NOTES[lane];
     detectedNoteEl.textContent = `${info.solfege} / ${info.note}`;

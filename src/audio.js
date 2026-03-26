@@ -11,13 +11,14 @@ const NOTES = [
 
 export { NOTES };
 
-const FFT_SIZE = 4096;
-const MIN_RMS = 0.01;
+const FFT_SIZE = 2048;
+const MIN_RMS = 0.008;
 
 export function createAudioDetector() {
   let ctx = null;
   let analyser = null;
   let timeData = null;
+  let freqData = null;
   let running = false;
 
   async function start() {
@@ -29,10 +30,18 @@ export function createAudioDetector() {
 
     analyser = ctx.createAnalyser();
     analyser.fftSize = FFT_SIZE;
+    analyser.smoothingTimeConstant = 0.6;
     source.connect(analyser);
 
     timeData = new Float32Array(analyser.fftSize);
+    freqData = new Float32Array(analyser.frequencyBinCount);
     running = true;
+  }
+
+  function getFrequencyData() {
+    if (!running || !analyser) return null;
+    analyser.getFloatFrequencyData(freqData);
+    return { data: freqData, sampleRate: ctx.sampleRate, binCount: analyser.frequencyBinCount };
   }
 
   function detectPitch() {
@@ -41,13 +50,11 @@ export function createAudioDetector() {
     analyser.getFloatTimeDomainData(timeData);
 
     let rms = 0;
-    for (let i = 0; i < timeData.length; i++) {
-      rms += timeData[i] * timeData[i];
-    }
+    for (let i = 0; i < timeData.length; i++) rms += timeData[i] * timeData[i];
     rms = Math.sqrt(rms / timeData.length);
     if (rms < MIN_RMS) return null;
 
-    const hz = autoCorrelate(timeData, ctx.sampleRate);
+    const hz = yin(timeData, ctx.sampleRate);
     if (hz === -1) return null;
 
     return { hz, rms };
@@ -59,17 +66,14 @@ export function createAudioDetector() {
     let closest = 0;
     let closestDist = Infinity;
     for (let i = 0; i < NOTES.length; i++) {
-      const cents = 1200 * Math.log2(hz / NOTES[i].hz);
-      const dist = Math.abs(cents);
-      if (dist < closestDist) {
-        closestDist = dist;
+      const cents = Math.abs(1200 * Math.log2(hz / NOTES[i].hz));
+      if (cents < closestDist) {
+        closestDist = cents;
         closest = i;
       }
     }
 
-    if (closestDist > 80) return null;
-
-    return closest;
+    return closestDist > 120 ? null : closest;
   }
 
   function stop() {
@@ -77,69 +81,72 @@ export function createAudioDetector() {
     if (ctx) ctx.close();
   }
 
-  return { start, detectPitch, hzToLane, stop };
+  return { start, detectPitch, hzToLane, getFrequencyData, stop };
 }
 
-function autoCorrelate(buf, sampleRate) {
+// YIN pitch detection algorithm — much more robust than autocorrelation for voice
+function yin(buf, sampleRate) {
   const n = buf.length;
+  const half = n >> 1;
+  const threshold = 0.15;
+
   const minHz = 200;
-  const maxHz = 600;
+  const maxHz = 620;
   const minLag = Math.floor(sampleRate / maxHz);
-  const maxLag = Math.ceil(sampleRate / minHz);
+  const maxLag = Math.min(half, Math.ceil(sampleRate / minHz));
 
-  let bestCorr = 0;
+  const diff = new Float32Array(half);
+
+  // Step 1: difference function
+  for (let lag = 1; lag < half; lag++) {
+    let s = 0;
+    for (let i = 0; i < half; i++) {
+      const d = buf[i] - buf[i + lag];
+      s += d * d;
+    }
+    diff[lag] = s;
+  }
+
+  // Step 2: cumulative mean normalised difference
+  const cmnd = new Float32Array(half);
+  cmnd[0] = 1;
+  let runSum = 0;
+  for (let lag = 1; lag < half; lag++) {
+    runSum += diff[lag];
+    cmnd[lag] = runSum === 0 ? 0 : diff[lag] * lag / runSum;
+  }
+
+  // Step 3: absolute threshold — find first dip below threshold in valid range
   let bestLag = -1;
-
-  let foundGoodCorr = false;
-  let lastCorr = 1;
-
-  for (let lag = minLag; lag <= maxLag && lag < n; lag++) {
-    let corr = 0;
-    let norm1 = 0;
-    let norm2 = 0;
-    for (let i = 0; i < n - lag; i++) {
-      corr += buf[i] * buf[i + lag];
-      norm1 += buf[i] * buf[i];
-      norm2 += buf[i + lag] * buf[i + lag];
-    }
-    const denom = Math.sqrt(norm1 * norm2);
-    if (denom === 0) continue;
-    corr /= denom;
-
-    if (corr > 0.9) foundGoodCorr = true;
-
-    if (foundGoodCorr && corr > bestCorr) {
-      bestCorr = corr;
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    if (cmnd[lag] < threshold) {
+      // refine: walk down to local minimum
+      while (lag + 1 <= maxLag && cmnd[lag + 1] < cmnd[lag]) lag++;
       bestLag = lag;
-    }
-
-    if (foundGoodCorr && corr < lastCorr && bestLag !== -1) {
       break;
     }
-    lastCorr = corr;
   }
 
-  if (bestLag === -1 || bestCorr < 0.8) return -1;
-
-  let shift =0;
-  if (bestLag > minLag && bestLag < maxLag) {
-    const corrPrev = normCorr(buf, bestLag - 1);
-    const corrNext = normCorr(buf, bestLag + 1);
-    shift = 0.5 * (corrPrev - corrNext) / (corrPrev - 2 * bestCorr + corrNext);
-    if (!isFinite(shift)) shift = 0;
+  // fallback: global minimum in range
+  if (bestLag === -1) {
+    let minVal = Infinity;
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      if (cmnd[lag] < minVal) { minVal = cmnd[lag]; bestLag = lag; }
+    }
+    if (minVal > 0.35) return -1;
   }
 
-  return sampleRate / (bestLag + shift);
-}
-
-function normCorr(buf, lag) {
-  const n = buf.length;
-  let corr = 0, n1 = 0, n2 = 0;
-  for (let i = 0; i < n - lag; i++) {
-    corr += buf[i] * buf[i + lag];
-    n1 += buf[i] * buf[i];
-    n2 += buf[i + lag] * buf[i + lag];
+  // Step 4: parabolic interpolation for sub-sample accuracy
+  if (bestLag > 0 && bestLag < half - 1) {
+    const s0 = cmnd[bestLag - 1];
+    const s1 = cmnd[bestLag];
+    const s2 = cmnd[bestLag + 1];
+    const denom = s0 - 2 * s1 + s2;
+    if (denom !== 0) {
+      const shift = 0.5 * (s0 - s2) / denom;
+      if (isFinite(shift)) bestLag += shift;
+    }
   }
-  const d = Math.sqrt(n1 * n2);
-  return d === 0 ? 0 : corr / d;
+
+  return sampleRate / bestLag;
 }

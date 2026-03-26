@@ -1,14 +1,12 @@
 import * as THREE from 'three';
 import { NOTES } from './audio.js';
 
-const LANE_COUNT = NOTES.length;
-const LANE_HEIGHT = 0.75;
-const BASE_Y = 1.2;
+export const LANE_COUNT = NOTES.length;
+export const LANE_HEIGHT = 0.75;
+export const BASE_Y = 1.2;
 const LERP_SPEED = 8;
 
 const REST_Z = 0;
-const BOUNCE_Z = 1.8;
-const Z_RETURN_SPEED = 3;
 
 export function laneToY(lane) {
   return BASE_Y + lane * LANE_HEIGHT;
@@ -27,7 +25,13 @@ export function createBall(scene) {
   scene.add(mesh);
 
   let targetY = mesh.position.y;
-  let bouncing = false;
+
+  // Bounce: ball rocks back on Z axis, stays near REST_Z
+  let bounceTime = 0;
+  let bounceCooldown = 0;
+  const BOUNCE_DURATION = 1.2;   // seconds of visible shake
+  const BOUNCE_COOLDOWN = 1.8;   // minimum gap between bounces
+  const BOUNCE_AMP = 0.45;
 
   function setLane(lane) {
     if (lane == null) return;
@@ -38,34 +42,43 @@ export function createBall(scene) {
   function update(dt) {
     mesh.position.y += (targetY - mesh.position.y) * Math.min(1, LERP_SPEED * dt);
 
-    if (bouncing) {
-      mesh.position.z += (REST_Z - mesh.position.z) * Math.min(1, Z_RETURN_SPEED * dt);
-      if (Math.abs(mesh.position.z - REST_Z) < 0.05) {
-        mesh.position.z = REST_Z;
-        bouncing = false;
-      }
+    if (bounceCooldown > 0) bounceCooldown -= dt;
+
+    if (bounceTime > 0) {
+      bounceTime -= dt;
+      const t = 1 - bounceTime / BOUNCE_DURATION;
+      // damped oscillation: moves toward camera then settles
+      mesh.position.z = REST_Z + BOUNCE_AMP * Math.sin(t * Math.PI * 4) * Math.pow(1 - t, 1.5);
+    } else {
+      mesh.position.z = REST_Z;
     }
   }
 
   function bounceBack() {
-    mesh.position.z = BOUNCE_Z;
-    bouncing = true;
+    if (bounceCooldown > 0) return;
+    bounceTime = BOUNCE_DURATION;
+    bounceCooldown = BOUNCE_COOLDOWN;
   }
 
   function isBouncing() {
-    return bouncing;
+    return bounceTime > 0;
+  }
+
+  function isOnCooldown() {
+    return bounceCooldown > 0;
   }
 
   function reset() {
     mesh.position.set(0, laneToY(3), REST_Z);
     targetY = mesh.position.y;
-    bouncing = false;
+    bounceTime = 0;
+    bounceCooldown = 0;
   }
 
   function flash(color) {
     mat.emissive.set(color);
-    setTimeout(() => mat.emissive.set(0x000000), 200);
+    setTimeout(() => mat.emissive.set(0x000000), 250);
   }
 
-  return { mesh, setLane, update, bounceBack, isBouncing, reset, flash };
+  return { mesh, setLane, update, bounceBack, isBouncing, isOnCooldown, reset, flash };
 }

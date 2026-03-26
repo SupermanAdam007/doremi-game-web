@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Doremi Game</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -10,26 +13,28 @@
   <div id="hud">
     <div id="hud-top">
       <div id="streak-display">0</div>
+      <button id="btn-pause" class="hidden" aria-label="Pause">⏸</button>
     </div>
     <div id="pitch-bar">
       <div id="pitch-indicator"></div>
       <div id="pitch-lanes"></div>
     </div>
     <div id="detected-note">--</div>
-    <div id="controls-hint">SPACE pause &middot; hold P pitch graph</div>
+    <div id="controls-hint">SPACE pause</div>
   </div>
 
-  <div id="pitch-graph-container" class="hidden"></div>
+  <div id="pitch-graph-container"></div>
 
   <div id="overlay-start" class="overlay">
     <h1>DOREMI GAME</h1>
-    <p>Sing the note shown on the wall to guide the ball through the hole!</p>
+    <p>Sing the note shown on each wall to guide the ball through the hole!</p>
     <button id="btn-start">Start</button>
   </div>
 
   <div id="overlay-pause" class="overlay hidden">
     <h1>Paused</h1>
-    <p>Press SPACE to resume</p>
+    <p>Press SPACE or tap Resume to continue</p>
+    <button id="btn-resume">Resume</button>
   </div>
 
   <canvas id="game-canvas"></canvas>

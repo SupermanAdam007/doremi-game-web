@@ -31,6 +31,9 @@ export function createSpawner(scene) {
   }
 
   function update(dt, wallsPassed, blockedWall) {
+    // When a wall is blocked, freeze everything — no new spawns, no movement
+    if (blockedWall) return;
+
     const spd = speed(wallsPassed);
 
     timer += dt;
@@ -41,7 +44,6 @@ export function createSpawner(scene) {
 
     for (let i = walls.length - 1; i >= 0; i--) {
       const w = walls[i];
-      if (w === blockedWall) continue;
       w.group.position.z += spd * dt;
       if (w.group.position.z > DESPAWN_Z) {
         w.dispose();
