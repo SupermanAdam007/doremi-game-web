@@ -130,21 +130,31 @@ function loop(now) {
   followBallZ(ball.mesh.position.z, dt);
 
   if (blockedWall) {
+    // Safety: wall was disposed externally (shouldn't happen but guard anyway)
+    if (blockedWall.disposed) {
+      blockedWall = null;
+      ball.setBlocked(false);
+    }
+  }
+
+  if (blockedWall) {
     ball.setBlocked(true);
-    const result = checkCollision(ball.mesh, blockedWall);
-    if (result === 'pass') {
-      blockedWall.passed = true;
-      gameState.passWall();
-      ball.flash(0x00ff00);
-      ball.setBlocked(false);
-      blockedWall = null;
-    } else if (result === null) {
-      ball.setBlocked(false);
-      blockedWall = null;
-    } else if (!ball.isOnCooldown()) {
-      ball.bounceBack();
-      ball.flash(0xff4444);
-      gameState.bounce();
+    // Only re-check collision when ball has returned from its bounce arc —
+    // during the bounce the ball is at z>0 which distorts the Z-distance check
+    if (!ball.isBouncing()) {
+      const result = checkCollision(ball.mesh, blockedWall);
+      if (result === 'pass') {
+        blockedWall.passed = true;
+        gameState.passWall();
+        ball.flash(0x00ff00);
+        ball.setBlocked(false);
+        blockedWall = null;
+      } else if (!ball.isOnCooldown()) {
+        // Cooldown done and still wrong note — bounce again
+        ball.bounceBack();
+        ball.flash(0xff4444);
+        gameState.bounce();
+      }
     }
   } else {
     ball.setBlocked(false);

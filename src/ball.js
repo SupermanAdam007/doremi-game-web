@@ -33,9 +33,9 @@ export function createBall(scene) {
   // Bounce: ball flies toward camera then returns to REST_Z
   let bounceTime = 0;
   let bounceCooldown = 0;
-  const BOUNCE_DURATION = 1.2;
-  const BOUNCE_COOLDOWN = 1.6;
-  const BOUNCE_AMP = 2.2;        // distance toward camera on bounce peak
+  const BOUNCE_DURATION = 1.0;
+  const BOUNCE_COOLDOWN = 1.2;
+  const BOUNCE_AMP = 1.2;        // distance toward camera on bounce peak
 
   function setLane(lane) {
     if (lane == null) {
