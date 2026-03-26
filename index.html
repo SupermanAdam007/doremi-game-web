@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doremi Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="hud">
+    <div id="hud-top">
+      <div id="streak-display">0</div>
+    </div>
+    <div id="pitch-bar">
+      <div id="pitch-indicator"></div>
+      <div id="pitch-lanes"></div>
+    </div>
+    <div id="detected-note">--</div>
+    <div id="controls-hint">SPACE pause &middot; hold P pitch graph</div>
+  </div>
+
+  <div id="pitch-graph-container" class="hidden"></div>
+
+  <div id="overlay-start" class="overlay">
+    <h1>DOREMI GAME</h1>
+    <p>Sing the note shown on the wall to guide the ball through the hole!</p>
+    <button id="btn-start">Start</button>
+  </div>
+
+  <div id="overlay-pause" class="overlay hidden">
+    <h1>Paused</h1>
+    <p>Press SPACE to resume</p>
+  </div>
+
+  <canvas id="game-canvas"></canvas>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+    }
+  }
+  </script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

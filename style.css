@@ -1,0 +1,177 @@
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  background: #1a1a2e;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #fff;
+}
+
+#game-canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ---------- HUD ---------- */
+
+#hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#hud-top {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+}
+
+#streak-display {
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+#streak-display.visible {
+  opacity: 1;
+}
+
+#detected-note {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  opacity: 0.7;
+}
+
+#controls-hint {
+  position: fixed;
+  bottom: 0.5rem;
+  right: 0.8rem;
+  font-size: 0.7rem;
+  opacity: 0.35;
+  letter-spacing: 0.03em;
+}
+
+/* Pitch bar on the left side */
+#pitch-bar {
+  position: fixed;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 50vh;
+  background: rgba(255,255,255,0.1);
+  border-radius: 6px;
+  overflow: visible;
+}
+
+#pitch-indicator {
+  position: absolute;
+  left: -2px;
+  width: 16px;
+  height: 16px;
+  background: #7fff7f;
+  border-radius: 50%;
+  bottom: 50%;
+  transition: bottom 0.08s linear;
+  box-shadow: 0 0 8px rgba(127,255,127,0.6);
+}
+
+#pitch-lanes {
+  position: absolute;
+  left: 24px;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+}
+
+.lane-label {
+  position: absolute;
+  font-size: 0.65rem;
+  font-weight: 600;
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+/* ---------- Pitch Graph ---------- */
+
+#pitch-graph-container {
+  position: fixed;
+  bottom: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  pointer-events: none;
+}
+
+#pitch-graph-container.hidden {
+  display: none;
+}
+
+/* ---------- Overlays ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 30, 0.85);
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay h1 {
+  font-size: 3rem;
+  font-weight: 900;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #a78bfa, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.overlay p {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  max-width: 340px;
+  text-align: center;
+  opacity: 0.8;
+}
+
+.overlay button {
+  padding: 0.75rem 2.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #a78bfa, #ec4899);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.overlay button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 20px rgba(167,139,250,0.4);
+}
