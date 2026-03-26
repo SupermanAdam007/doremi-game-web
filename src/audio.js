@@ -21,6 +21,17 @@ export function createAudioDetector() {
   let freqData = null;
   let running = false;
 
+  // Median filter over last 3 raw Hz values to suppress octave-jump noise
+  const hzHistory = [];
+  const MEDIAN_N = 3;
+
+  function filteredHz(raw) {
+    hzHistory.push(raw);
+    if (hzHistory.length > MEDIAN_N) hzHistory.shift();
+    const sorted = hzHistory.slice().sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  }
+
   async function start() {
     if (running && ctx) return;
 
@@ -30,7 +41,8 @@ export function createAudioDetector() {
 
     analyser = ctx.createAnalyser();
     analyser.fftSize = FFT_SIZE;
-    analyser.smoothingTimeConstant = 0.6;
+    // Must be 0 for time-domain data: smoothing blurs the waveform and breaks YIN
+    analyser.smoothingTimeConstant = 0;
     source.connect(analyser);
 
     timeData = new Float32Array(analyser.fftSize);
@@ -54,9 +66,10 @@ export function createAudioDetector() {
     rms = Math.sqrt(rms / timeData.length);
     if (rms < MIN_RMS) return null;
 
-    const hz = yin(timeData, ctx.sampleRate);
-    if (hz === -1) return null;
+    const rawHz = yin(timeData, ctx.sampleRate);
+    if (rawHz === -1) return null;
 
+    const hz = filteredHz(rawHz);
     return { hz, rms };
   }
 
@@ -73,7 +86,7 @@ export function createAudioDetector() {
       }
     }
 
-    return closestDist > 120 ? null : closest;
+    return closestDist > 150 ? null : closest;
   }
 
   function stop() {
@@ -134,7 +147,7 @@ function yin(buf, sampleRate) {
     for (let lag = minLag; lag <= maxLag; lag++) {
       if (cmnd[lag] < minVal) { minVal = cmnd[lag]; bestLag = lag; }
     }
-    if (minVal > 0.35) return -1;
+    if (minVal > 0.25) return -1;
   }
 
   // Step 4: parabolic interpolation for sub-sample accuracy
