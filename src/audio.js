@@ -11,7 +11,7 @@ const NOTES = [
 
 export { NOTES };
 
-const FFT_SIZE = 2048;
+const FFT_SIZE = 4096; // larger buffer = better frequency resolution for low notes
 const MIN_RMS = 0.008;
 
 export function createAudioDetector() {
@@ -81,6 +81,7 @@ export function createAudioDetector() {
     if (ctx) ctx.close();
   }
 
+  // Returns { hz, rms } or null. Caller uses hzToLane() to quantize to a lane.
   return { start, detectPitch, hzToLane, getFrequencyData, stop };
 }
 

@@ -102,7 +102,7 @@ function loop(now) {
       const pitch = audio.detectPitch();
       const lane = pitch ? audio.hzToLane(pitch.hz) : null;
       updateHUD(lane);
-      pitchGraph.push(lane);
+      pitchGraph.push(pitch ? pitch.hz : null);
       pitchGraph.setFreqData(audio.getFrequencyData());
       pitchGraph.draw();
       render();
@@ -121,7 +121,7 @@ function loop(now) {
   const lane = pitch ? audio.hzToLane(pitch.hz) : null;
 
   updateHUD(lane);
-  pitchGraph.push(lane);
+  pitchGraph.push(pitch ? pitch.hz : null);
   pitchGraph.setFreqData(audio.getFrequencyData());
   pitchGraph.draw();
 

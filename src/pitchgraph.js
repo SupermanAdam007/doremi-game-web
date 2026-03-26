@@ -5,6 +5,10 @@ const SAMPLE_EVERY = 4;
 const HISTORY_SECONDS = 12;
 const HISTORY_SIZE = Math.round((60 / SAMPLE_EVERY) * HISTORY_SECONDS);
 
+// Hz range shown in pitch history — matches the game's note range with padding
+const HIST_MIN_HZ = NOTES[0].hz * Math.pow(2, -1 / 6);   // ~half a step below Do
+const HIST_MAX_HZ = NOTES[NOTES.length - 1].hz * Math.pow(2, 1 / 6); // ~half a step above top Do
+
 // Spectrum smoothing: higher = slower/smoother
 const SPEC_SMOOTH_RISE = 0.85;  // for rising bars
 const SPEC_SMOOTH_FALL = 0.6;   // for falling bars (fall a bit faster)
@@ -31,15 +35,16 @@ export function createPitchGraph(containerEl) {
   containerEl.appendChild(canvas);
   const ctx = canvas.getContext('2d');
 
-  const history = [];
+  const history = []; // stores raw Hz values (or null for silence)
   let frameCount = 0;
   let lastFreqResult = null;
   let smoothedBars = null; // exponentially smoothed bar heights [0..1]
 
-  function push(lane) {
+  // hz: raw detected Hz, or null for silence
+  function push(hz) {
     frameCount++;
     if (frameCount % SAMPLE_EVERY === 0) {
-      history.push(lane);
+      history.push(hz);
       if (history.length > HISTORY_SIZE) history.shift();
     }
   }
@@ -167,6 +172,27 @@ export function createPitchGraph(containerEl) {
     }
   }
 
+  // Map a Hz value to a Y pixel within the history panel using a log scale
+  function hzToY(hz, oy, margin, ph) {
+    const logMin = Math.log2(HIST_MIN_HZ);
+    const logMax = Math.log2(HIST_MAX_HZ);
+    const frac = (Math.log2(hz) - logMin) / (logMax - logMin);
+    return oy + margin.top + ph - Math.max(0, Math.min(1, frac)) * ph;
+  }
+
+  // Returns the color of the nearest note, blended toward white by distance in cents
+  function hzColor(hz) {
+    let nearest = 0;
+    let nearestCents = Infinity;
+    for (let i = 0; i < NOTES.length; i++) {
+      const cents = Math.abs(1200 * Math.log2(hz / NOTES[i].hz));
+      if (cents < nearestCents) { nearestCents = cents; nearest = i; }
+    }
+    // Full note color within 30 cents, fade toward neutral beyond 100 cents
+    const t = Math.min(1, Math.max(0, (nearestCents - 30) / 70));
+    return t < 0.01 ? NOTE_COLORS[nearest] : NOTE_COLORS[nearest];
+  }
+
   function drawHistory(ox, oy, w, h) {
     const margin = { top: 14, bottom: 8, left: 40, right: 8 };
     const pw = w - margin.left - margin.right;
@@ -178,14 +204,26 @@ export function createPitchGraph(containerEl) {
     ctx.textBaseline = 'top';
     ctx.fillText('PITCH HISTORY', ox + margin.left, oy + 3);
 
+    // Note lane lines + labels
     for (let i = 0; i < NOTES.length; i++) {
-      const y = oy + margin.top + ph - (i / (NOTES.length - 1)) * ph;
-      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      const y = hzToY(NOTES[i].hz, oy, margin, ph);
+
+      // Shaded band ±half-step wide so the target zone is visible
+      const halfStepBelow = NOTES[i].hz * Math.pow(2, -0.5 / 12);
+      const halfStepAbove = NOTES[i].hz * Math.pow(2, 0.5 / 12);
+      const yTop = hzToY(halfStepAbove, oy, margin, ph);
+      const yBot = hzToY(halfStepBelow, oy, margin, ph);
+      ctx.fillStyle = `${NOTE_COLORS[i]}18`;
+      ctx.fillRect(ox + margin.left, yTop, pw, yBot - yTop);
+
+      ctx.strokeStyle = `${NOTE_COLORS[i]}40`;
       ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
       ctx.beginPath();
       ctx.moveTo(ox + margin.left, y);
       ctx.lineTo(ox + w - margin.right, y);
       ctx.stroke();
+      ctx.setLineDash([]);
 
       ctx.fillStyle = NOTE_COLORS[i];
       ctx.font = `bold ${isMobile ? 8 : 10}px sans-serif`;
@@ -196,33 +234,46 @@ export function createPitchGraph(containerEl) {
 
     if (history.length < 2) return;
 
-    ctx.beginPath();
+    // Draw continuous pitch curve in raw Hz
     ctx.lineWidth = 2.5;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#7fff7f';
-    ctx.shadowColor = 'rgba(127,255,127,0.4)';
-    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(127,255,127,0.5)';
+    ctx.shadowBlur = 5;
 
     let started = false;
     for (let i = 0; i < history.length; i++) {
-      const lane = history[i];
-      if (lane == null) { started = false; continue; }
+      const hz = history[i];
+      if (hz == null) { if (started) { ctx.stroke(); started = false; } continue; }
       const x = ox + margin.left + (i / (HISTORY_SIZE - 1)) * pw;
-      const y = oy + margin.top + ph - (lane / (NOTES.length - 1)) * ph;
-      if (!started) { ctx.moveTo(x, y); started = true; }
-      else ctx.lineTo(x, y);
+      const y = hzToY(hz, oy, margin, ph);
+      if (!started) {
+        ctx.beginPath();
+        ctx.strokeStyle = hzColor(hz);
+        ctx.moveTo(x, y);
+        started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
     }
-    ctx.stroke();
+    if (started) ctx.stroke();
     ctx.shadowBlur = 0;
 
-    const lastLane = history[history.length - 1];
-    if (lastLane != null) {
+    // Current pitch dot
+    const lastHz = history[history.length - 1];
+    if (lastHz != null) {
       const x = ox + margin.left + pw;
-      const y = oy + margin.top + ph - (lastLane / (NOTES.length - 1)) * ph;
-      ctx.fillStyle = NOTE_COLORS[lastLane] || '#7fff7f';
-      ctx.shadowColor = NOTE_COLORS[lastLane] || '#7fff7f';
-      ctx.shadowBlur = 10;
+      const y = hzToY(lastHz, oy, margin, ph);
+      let nearest = 0;
+      let nearestCents = Infinity;
+      for (let i = 0; i < NOTES.length; i++) {
+        const c = Math.abs(1200 * Math.log2(lastHz / NOTES[i].hz));
+        if (c < nearestCents) { nearestCents = c; nearest = i; }
+      }
+      const color = NOTE_COLORS[nearest];
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, Math.PI * 2);
       ctx.fill();
