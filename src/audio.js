@@ -11,24 +11,25 @@ const NOTES = [
 
 export { NOTES };
 
-const FFT_SIZE = 4096; // larger buffer = better frequency resolution for low notes
+// Separate sizes: YIN needs clean time-domain; spectrum benefits from smoothing
+const YIN_FFT_SIZE  = 2048; // time-domain for pitch detection
+const SPEC_FFT_SIZE = 2048; // frequency-domain for spectrum display
 const MIN_RMS = 0.008;
 
 export function createAudioDetector() {
   let ctx = null;
-  let analyser = null;
+  let yinAnalyser  = null; // smoothingTimeConstant=0, for YIN time-domain data
+  let specAnalyser = null; // smoothingTimeConstant=0.7, for spectrum display
   let timeData = null;
   let freqData = null;
   let running = false;
 
-  // Two-sample median: keeps previous + current, returns lower of the two
-  // if they differ by more than an octave (octave jump suppression) else current.
-  // Zero added latency for stable notes, one-frame rejection of octave spikes.
+  // One-frame octave-jump suppressor: zero added latency for stable notes.
   let prevHz = null;
 
   function filteredHz(raw) {
     const out = (prevHz !== null && Math.abs(Math.log2(raw / prevHz)) > 0.6)
-      ? prevHz   // jump > ~tritone: keep previous value
+      ? prevHz   // jump > ~tritone: hold previous
       : raw;
     prevHz = raw;
     return out;
@@ -41,27 +42,35 @@ export function createAudioDetector() {
     ctx = new AudioContext();
     const source = ctx.createMediaStreamSource(stream);
 
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = FFT_SIZE;
-    // Must be 0 for time-domain data: smoothing blurs the waveform and breaks YIN
-    analyser.smoothingTimeConstant = 0;
-    source.connect(analyser);
+    // YIN analyser: NO smoothing — smoothingTimeConstant=0 can return zeros on
+    // Safari/WebKit, so we leave it at the safe default (0) but rely on a
+    // separate node so the spectrum analyser can keep its smoothing independently.
+    yinAnalyser = ctx.createAnalyser();
+    yinAnalyser.fftSize = YIN_FFT_SIZE;
+    yinAnalyser.smoothingTimeConstant = 0;
+    source.connect(yinAnalyser);
 
-    timeData = new Float32Array(analyser.fftSize);
-    freqData = new Float32Array(analyser.frequencyBinCount);
+    // Spectrum analyser: smoothed for a pleasant visual
+    specAnalyser = ctx.createAnalyser();
+    specAnalyser.fftSize = SPEC_FFT_SIZE;
+    specAnalyser.smoothingTimeConstant = 0.7;
+    source.connect(specAnalyser);
+
+    timeData = new Float32Array(yinAnalyser.fftSize);
+    freqData = new Float32Array(specAnalyser.frequencyBinCount);
     running = true;
   }
 
   function getFrequencyData() {
-    if (!running || !analyser) return null;
-    analyser.getFloatFrequencyData(freqData);
-    return { data: freqData, sampleRate: ctx.sampleRate, binCount: analyser.frequencyBinCount };
+    if (!running || !specAnalyser) return null;
+    specAnalyser.getFloatFrequencyData(freqData);
+    return { data: freqData, sampleRate: ctx.sampleRate, binCount: specAnalyser.frequencyBinCount };
   }
 
   function detectPitch() {
-    if (!running || !analyser) return null;
+    if (!running || !yinAnalyser) return null;
 
-    analyser.getFloatTimeDomainData(timeData);
+    yinAnalyser.getFloatTimeDomainData(timeData);
 
     let rms = 0;
     for (let i = 0; i < timeData.length; i++) rms += timeData[i] * timeData[i];
@@ -93,7 +102,9 @@ export function createAudioDetector() {
 
   function stop() {
     running = false;
-    if (ctx) ctx.close();
+    if (ctx) { ctx.close(); ctx = null; }
+    yinAnalyser = null;
+    specAnalyser = null;
   }
 
   // Returns { hz, rms } or null. Caller uses hzToLane() to quantize to a lane.
