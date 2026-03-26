@@ -32,9 +32,9 @@ export function createBall(scene) {
   // Bounce: ball rocks back on Z axis, stays near REST_Z
   let bounceTime = 0;
   let bounceCooldown = 0;
-  const BOUNCE_DURATION = 1.2;   // seconds of visible shake
-  const BOUNCE_COOLDOWN = 1.8;   // minimum gap between bounces
-  const BOUNCE_AMP = 0.45;
+  const BOUNCE_DURATION = 1.4;   // seconds of visible shake
+  const BOUNCE_COOLDOWN = 2.0;   // minimum gap between bounces
+  const BOUNCE_AMP = 1.6;        // distance toward camera on bounce
 
   function setLane(lane) {
     if (lane == null) {
