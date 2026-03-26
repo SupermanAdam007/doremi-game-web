@@ -11,10 +11,10 @@ export function checkCollision(ball, wall) {
   // dist: positive means wall is ahead of ball (not yet reached)
   const dist = wallZ - ballZ;
 
-  // Only check when wall is within the approach zone
-  // Use a generous exit threshold so a Z-bounce never accidentally returns null
-  // while the wall is still blocking (would leave blockedWall stuck forever)
-  if (dist > APPROACH_ZONE || dist < -(ballR * 6)) return null;
+  // Only check when wall is within the approach zone.
+  // Exit threshold must be larger than max BOUNCE_AMP so a Z-bounce never
+  // escapes the zone and prematurely clears blockedWall.
+  if (dist > APPROACH_ZONE || dist < -12) return null;
 
   const ballY = ball.position.y;
   const ballBottom = ballY - ballR;

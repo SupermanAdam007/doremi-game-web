@@ -130,23 +130,24 @@ function loop(now) {
   followBallZ(ball.mesh.position.z, dt);
 
   if (blockedWall) {
-    // World is fully frozen — no scrolling, no spawning, no other wall movement
+    ball.setBlocked(true);
     const result = checkCollision(ball.mesh, blockedWall);
     if (result === 'pass') {
       blockedWall.passed = true;
       gameState.passWall();
       ball.flash(0x00ff00);
+      ball.setBlocked(false);
       blockedWall = null;
     } else if (result === null) {
-      // Ball escaped the contact zone (e.g. flew past) — unblock so game can continue
+      ball.setBlocked(false);
       blockedWall = null;
     } else if (!ball.isOnCooldown()) {
-      // Cooldown expired — bounce again to signal wrong pitch
       ball.bounceBack();
       ball.flash(0xff4444);
       gameState.bounce();
     }
   } else {
+    ball.setBlocked(false);
     spawner.update(dt, snap.wallsPassed, null);
     scrollRoad(dt);
     for (const wall of spawner.getActiveWalls()) {
@@ -158,6 +159,7 @@ function loop(now) {
         ball.flash(0x00ff00);
       } else if (result === 'blocked') {
         blockedWall = wall;
+        ball.setBlocked(true);
         ball.bounceBack();
         ball.flash(0xff4444);
         gameState.bounce();

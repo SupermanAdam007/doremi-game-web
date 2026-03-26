@@ -28,13 +28,14 @@ export function createBall(scene) {
 
   let targetY = mesh.position.y;
   let hasSound = false;
+  let blocked = false; // true while stuck at a wall — gravity suspended
 
-  // Bounce: ball rocks back on Z axis, stays near REST_Z
+  // Bounce: ball flies toward camera then returns to REST_Z
   let bounceTime = 0;
   let bounceCooldown = 0;
-  const BOUNCE_DURATION = 1.4;   // seconds of visible shake
-  const BOUNCE_COOLDOWN = 2.0;   // minimum gap between bounces
-  const BOUNCE_AMP = 1.6;        // distance toward camera on bounce
+  const BOUNCE_DURATION = 1.2;
+  const BOUNCE_COOLDOWN = 1.6;
+  const BOUNCE_AMP = 2.2;        // distance toward camera on bounce peak
 
   function setLane(lane) {
     if (lane == null) {
@@ -46,8 +47,12 @@ export function createBall(scene) {
     targetY = laneToY(clamped);
   }
 
+  function setBlocked(isBlocked) {
+    blocked = isBlocked;
+  }
+
   function update(dt) {
-    if (!hasSound) {
+    if (!hasSound && !blocked) {
       // Drift targetY down toward the floor
       targetY = Math.max(FLOOR_Y, targetY - GRAVITY * LANE_HEIGHT * dt);
     }
@@ -58,9 +63,9 @@ export function createBall(scene) {
 
     if (bounceTime > 0) {
       bounceTime -= dt;
+      // t goes 0→1 over BOUNCE_DURATION; sin(t*π) is a single clean arc (0 → peak → 0)
       const t = 1 - bounceTime / BOUNCE_DURATION;
-      // damped oscillation: moves toward camera then settles
-      mesh.position.z = REST_Z + BOUNCE_AMP * Math.sin(t * Math.PI * 4) * Math.pow(1 - t, 1.5);
+      mesh.position.z = REST_Z + BOUNCE_AMP * Math.sin(t * Math.PI);
     } else {
       mesh.position.z = REST_Z;
     }
@@ -86,6 +91,7 @@ export function createBall(scene) {
     bounceTime = 0;
     bounceCooldown = 0;
     hasSound = false;
+    blocked = false;
   }
 
   function flash(color) {
@@ -93,5 +99,5 @@ export function createBall(scene) {
     setTimeout(() => mat.emissive.set(0x000000), 250);
   }
 
-  return { mesh, setLane, update, bounceBack, isBouncing, isOnCooldown, reset, flash };
+  return { mesh, setLane, setBlocked, update, bounceBack, isBouncing, isOnCooldown, reset, flash };
 }
