@@ -21,15 +21,17 @@ export function createAudioDetector() {
   let freqData = null;
   let running = false;
 
-  // Median filter over last 3 raw Hz values to suppress octave-jump noise
-  const hzHistory = [];
-  const MEDIAN_N = 3;
+  // Two-sample median: keeps previous + current, returns lower of the two
+  // if they differ by more than an octave (octave jump suppression) else current.
+  // Zero added latency for stable notes, one-frame rejection of octave spikes.
+  let prevHz = null;
 
   function filteredHz(raw) {
-    hzHistory.push(raw);
-    if (hzHistory.length > MEDIAN_N) hzHistory.shift();
-    const sorted = hzHistory.slice().sort((a, b) => a - b);
-    return sorted[Math.floor(sorted.length / 2)];
+    const out = (prevHz !== null && Math.abs(Math.log2(raw / prevHz)) > 0.6)
+      ? prevHz   // jump > ~tritone: keep previous value
+      : raw;
+    prevHz = raw;
+    return out;
   }
 
   async function start() {

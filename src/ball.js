@@ -4,7 +4,7 @@ import { NOTES } from './audio.js';
 export const LANE_COUNT = NOTES.length;
 export const LANE_HEIGHT = 0.75;
 export const BASE_Y = 1.2;
-const LERP_SPEED = 8;
+const LERP_SPEED = 22;
 
 const REST_Z = 0;
 const GRAVITY = 2.8; // lanes per second the ball falls when silent

@@ -1,5 +1,5 @@
 // How far ahead of the wall we start checking (units)
-const APPROACH_ZONE = 1.0;
+const APPROACH_ZONE = 1.5;
 
 export function checkCollision(ball, wall) {
   if (wall.passed) return null;
