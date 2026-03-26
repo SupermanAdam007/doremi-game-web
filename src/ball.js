@@ -7,8 +7,8 @@ const BASE_Y = 1.2;
 const LERP_SPEED = 8;
 
 const REST_Z = 0;
-const BOUNCE_Z = 4;
-const Z_RETURN_SPEED = 6;
+const BOUNCE_Z = 1.8;
+const Z_RETURN_SPEED = 3;
 
 export function laneToY(lane) {
   return BASE_Y + lane * LANE_HEIGHT;

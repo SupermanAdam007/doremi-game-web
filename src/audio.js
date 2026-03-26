@@ -11,13 +11,13 @@ const NOTES = [
 
 export { NOTES };
 
-const FFT_SIZE = 2048;
-const MIN_DB = -60;
+const FFT_SIZE = 4096;
+const MIN_RMS = 0.01;
 
 export function createAudioDetector() {
   let ctx = null;
   let analyser = null;
-  let dataArray = null;
+  let timeData = null;
   let running = false;
 
   async function start() {
@@ -29,44 +29,28 @@ export function createAudioDetector() {
 
     analyser = ctx.createAnalyser();
     analyser.fftSize = FFT_SIZE;
-    analyser.smoothingTimeConstant = 0.8;
     source.connect(analyser);
 
-    dataArray = new Float32Array(analyser.frequencyBinCount);
+    timeData = new Float32Array(analyser.fftSize);
     running = true;
   }
 
   function detectPitch() {
     if (!running || !analyser) return null;
 
-    analyser.getFloatFrequencyData(dataArray);
+    analyser.getFloatTimeDomainData(timeData);
 
-    let maxVal = -Infinity;
-    let maxIndex = 0;
-    const nyquist = ctx.sampleRate / 2;
-
-    const minBin = Math.floor((200 / nyquist) * dataArray.length);
-    const maxBin = Math.ceil((600 / nyquist) * dataArray.length);
-
-    for (let i = minBin; i < maxBin; i++) {
-      if (dataArray[i] > maxVal) {
-        maxVal = dataArray[i];
-        maxIndex = i;
-      }
+    let rms = 0;
+    for (let i = 0; i < timeData.length; i++) {
+      rms += timeData[i] * timeData[i];
     }
+    rms = Math.sqrt(rms / timeData.length);
+    if (rms < MIN_RMS) return null;
 
-    if (maxVal < MIN_DB) return null;
+    const hz = autoCorrelate(timeData, ctx.sampleRate);
+    if (hz === -1) return null;
 
-    const binHz = ctx.sampleRate / analyser.fftSize;
-    const rawHz = maxIndex * binHz;
-
-    const alpha = dataArray[maxIndex - 1] ?? dataArray[maxIndex];
-    const beta = dataArray[maxIndex];
-    const gamma = dataArray[maxIndex + 1] ?? dataArray[maxIndex];
-    const peakOffset = 0.5 * (alpha - gamma) / (alpha - 2 * beta + gamma);
-    const interpolatedHz = (maxIndex + (isFinite(peakOffset) ? peakOffset : 0)) * binHz;
-
-    return { hz: interpolatedHz, db: maxVal };
+    return { hz, rms };
   }
 
   function hzToLane(hz) {
@@ -83,7 +67,7 @@ export function createAudioDetector() {
       }
     }
 
-    if (closestDist > 100) return null;
+    if (closestDist > 80) return null;
 
     return closest;
   }
@@ -94,4 +78,68 @@ export function createAudioDetector() {
   }
 
   return { start, detectPitch, hzToLane, stop };
+}
+
+function autoCorrelate(buf, sampleRate) {
+  const n = buf.length;
+  const minHz = 200;
+  const maxHz = 600;
+  const minLag = Math.floor(sampleRate / maxHz);
+  const maxLag = Math.ceil(sampleRate / minHz);
+
+  let bestCorr = 0;
+  let bestLag = -1;
+
+  let foundGoodCorr = false;
+  let lastCorr = 1;
+
+  for (let lag = minLag; lag <= maxLag && lag < n; lag++) {
+    let corr = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+    for (let i = 0; i < n - lag; i++) {
+      corr += buf[i] * buf[i + lag];
+      norm1 += buf[i] * buf[i];
+      norm2 += buf[i + lag] * buf[i + lag];
+    }
+    const denom = Math.sqrt(norm1 * norm2);
+    if (denom === 0) continue;
+    corr /= denom;
+
+    if (corr > 0.9) foundGoodCorr = true;
+
+    if (foundGoodCorr && corr > bestCorr) {
+      bestCorr = corr;
+      bestLag = lag;
+    }
+
+    if (foundGoodCorr && corr < lastCorr && bestLag !== -1) {
+      break;
+    }
+    lastCorr = corr;
+  }
+
+  if (bestLag === -1 || bestCorr < 0.8) return -1;
+
+  let shift =0;
+  if (bestLag > minLag && bestLag < maxLag) {
+    const corrPrev = normCorr(buf, bestLag - 1);
+    const corrNext = normCorr(buf, bestLag + 1);
+    shift = 0.5 * (corrPrev - corrNext) / (corrPrev - 2 * bestCorr + corrNext);
+    if (!isFinite(shift)) shift = 0;
+  }
+
+  return sampleRate / (bestLag + shift);
+}
+
+function normCorr(buf, lag) {
+  const n = buf.length;
+  let corr = 0, n1 = 0, n2 = 0;
+  for (let i = 0; i < n - lag; i++) {
+    corr += buf[i] * buf[i + lag];
+    n1 += buf[i] * buf[i];
+    n2 += buf[i + lag] * buf[i + lag];
+  }
+  const d = Math.sqrt(n1 * n2);
+  return d === 0 ? 0 : corr / d;
 }

@@ -16,7 +16,7 @@ const pitchIndicator = document.getElementById('pitch-indicator');
 const pitchLanes = document.getElementById('pitch-lanes');
 const pitchGraphContainer = document.getElementById('pitch-graph-container');
 
-const { scene, render, scrollRoad } = createScene(canvas);
+const { scene, render, scrollRoad, followBallZ } = createScene(canvas);
 const ball = createBall(scene);
 const audio = createAudioDetector();
 const spawner = createSpawner(scene);
@@ -109,6 +109,7 @@ function loop(now) {
 
   ball.setLane(lane);
   ball.update(dt);
+  followBallZ(ball.mesh.position.z, dt);
 
   if (!ball.isBouncing()) {
     spawner.update(dt, snap.wallsPassed, blockedWall);

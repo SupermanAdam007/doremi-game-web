@@ -13,8 +13,10 @@ export function createScene(canvas) {
   scene.fog = new THREE.Fog(0xd0d4da, 30, 60);
 
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 120);
-  camera.position.set(4.5, 3.5, 6);
-  camera.lookAt(-0.5, 2.8, -12);
+  const baseCamPos = new THREE.Vector3(3.5, 3.0, 8);
+  const baseLookAt = new THREE.Vector3(-0.5, 2.5, -15);
+  camera.position.copy(baseCamPos);
+  camera.lookAt(baseLookAt);
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
   scene.add(ambientLight);
@@ -44,6 +46,17 @@ export function createScene(canvas) {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
+  const camLookTarget = baseLookAt.clone();
+  const CAM_LERP = 4;
+
+  function followBallZ(ballZ, dt) {
+    const targetZ = baseCamPos.z + ballZ * 0.6;
+    camera.position.z += (targetZ - camera.position.z) * Math.min(1, CAM_LERP * dt);
+
+    camLookTarget.z = baseLookAt.z + ballZ * 0.3;
+    camera.lookAt(camLookTarget);
+  }
+
   function render() {
     renderer.render(scene, camera);
   }
@@ -52,7 +65,7 @@ export function createScene(canvas) {
     road.material.map.offset.y -= dt * 0.06;
   }
 
-  return { scene, camera, renderer, render, scrollRoad };
+  return { scene, camera, renderer, render, scrollRoad, followBallZ };
 }
 
 function createRoad() {

@@ -11,6 +11,7 @@ const MIN_INTERVAL = 1.8;
 export function createSpawner(scene) {
   const walls = [];
   let timer = 0;
+  let nextLane = 0;
 
   function speed(wallsPassed) {
     return BASE_SPEED + wallsPassed * SPEED_RAMP;
@@ -21,7 +22,9 @@ export function createSpawner(scene) {
   }
 
   function spawn() {
-    const lane = Math.floor(Math.random() * NOTES.length);
+    const lane = nextLane;
+    nextLane = (nextLane + 1) % NOTES.length;
+
     const wall = createWall(scene, lane);
     wall.group.position.z = SPAWN_Z;
     walls.push(wall);
@@ -63,6 +66,7 @@ export function createSpawner(scene) {
     for (const w of walls) w.dispose();
     walls.length = 0;
     timer = 0;
+    nextLane = 0;
   }
 
   return { update, getActiveWalls, removeWall, clear, spawn };
