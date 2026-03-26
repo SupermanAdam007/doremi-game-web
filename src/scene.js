@@ -13,12 +13,27 @@ export function createScene(canvas) {
   scene.fog = new THREE.Fog(0xd0d4da, 30, 60);
 
   const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 120);
-  // Camera far to the right and slightly behind the ball, looking left toward the walls.
-  // This gives the side perspective from the reference image.
-  const baseCamPos = new THREE.Vector3(6, 2.2, 3);
-  const baseLookAt = new THREE.Vector3(-0.5, 3.0, -6);
-  camera.position.copy(baseCamPos);
-  camera.lookAt(baseLookAt);
+
+  // Desktop (landscape): wide side-angle perspective matching the reference image.
+  // Mobile (portrait): pull back toward center so the ball and walls both fit in frame.
+  const desktopPos    = new THREE.Vector3(6, 2.2, 3);
+  const desktopLookAt = new THREE.Vector3(-0.5, 3.0, -6);
+  const mobilePos     = new THREE.Vector3(2.5, 3.5, 9);
+  const mobileLookAt  = new THREE.Vector3(0, 3.0, -4);
+
+  function isPortrait() { return window.innerWidth < window.innerHeight; }
+
+  function applyCameraAngle() {
+    if (isPortrait()) {
+      camera.position.copy(mobilePos);
+      camera.lookAt(mobileLookAt);
+    } else {
+      camera.position.copy(desktopPos);
+      camera.lookAt(desktopLookAt);
+    }
+  }
+
+  applyCameraAngle();
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
   scene.add(ambientLight);
@@ -46,6 +61,7 @@ export function createScene(canvas) {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    applyCameraAngle();
   });
 
   function followBallZ(_ballZ, _dt) {
