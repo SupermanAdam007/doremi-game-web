@@ -193,7 +193,7 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 10, 30, 0.88);
+  background: rgba(10, 10, 30, 0.45);
   z-index: 20;
   pointer-events: auto;
   padding: 2rem 1.5rem;

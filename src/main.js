@@ -97,7 +97,6 @@ async function startGame() {
 function loop(now) {
   const snap = gameState.snapshot();
   if (snap.state !== State.PLAYING) {
-    // Keep graphs live during pause so player can tune pitch
     if (snap.state === State.PAUSED) {
       const pitch = audio.detectPitch();
       const lane = pitch ? audio.hzToLane(pitch.hz) : null;
@@ -130,7 +129,6 @@ function loop(now) {
   followBallZ(ball.mesh.position.z, dt);
 
   if (blockedWall) {
-    // Safety: wall was disposed externally (shouldn't happen but guard anyway)
     if (blockedWall.disposed) {
       blockedWall = null;
       ball.setBlocked(false);
@@ -139,8 +137,6 @@ function loop(now) {
 
   if (blockedWall) {
     ball.setBlocked(true);
-    // Only re-check collision when ball has returned from its bounce arc —
-    // during the bounce the ball is at z>0 which distorts the Z-distance check
     if (!ball.isBouncing()) {
       const result = checkCollision(ball.mesh, blockedWall);
       if (result === 'pass') {
@@ -150,7 +146,6 @@ function loop(now) {
         ball.setBlocked(false);
         blockedWall = null;
       } else if (!ball.isOnCooldown()) {
-        // Cooldown done and still wrong note — bounce again
         ball.bounceBack();
         ball.flash(0xff4444);
         gameState.bounce();

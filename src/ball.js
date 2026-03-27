@@ -28,7 +28,7 @@ export function createBall(scene) {
 
   let targetY = mesh.position.y;
   let hasSound = false;
-  let blocked = false; // true while stuck at a wall — gravity suspended
+  let blocked = false;
 
   // Bounce: ball flies toward camera then returns to REST_Z
   let bounceTime = 0;
@@ -52,8 +52,7 @@ export function createBall(scene) {
   }
 
   function update(dt) {
-    if (!hasSound && !blocked) {
-      // Drift targetY down toward the floor
+    if (!hasSound) {
       targetY = Math.max(FLOOR_Y, targetY - GRAVITY * LANE_HEIGHT * dt);
     }
 
